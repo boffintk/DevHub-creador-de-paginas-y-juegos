@@ -2,12 +2,12 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Terror 3D</title>
+<title>Terror FP</title>
 <style>
 body { margin:0; overflow:hidden; background:black; }
 canvas { display:block; }
 
-/* joystick */
+/* joystick derecha */
 #joy {
   position:absolute;
   right:20px;
@@ -26,12 +26,21 @@ canvas { display:block; }
   left:35px;
   top:35px;
 }
-button {
+
+/* botones izquierda */
+.btn {
   position:absolute;
   left:20px;
-  bottom:20px;
   padding:10px;
+  background:black;
+  color:white;
+  border:1px solid white;
 }
+
+#back { bottom:20px; }
+#jump { bottom:80px; }
+#crouch { bottom:140px; }
+
 </style>
 </head>
 <body>
@@ -39,8 +48,10 @@ button {
 <canvas id="game"></canvas>
 
 <div id="joy"><div id="stick"></div></div>
-<button onclick="jump()">🦘</button>
-<button style="bottom:70px;" onclick="crouch()">🧎</button>
+
+<button id="back" class="btn">⬇️</button>
+<button id="jump" class="btn">🦘</button>
+<button id="crouch" class="btn">🧎</button>
 
 <script>
 const canvas = document.getElementById("game");
@@ -48,58 +59,54 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// jugador
 let player = {
-  x:0,
-  y:0,
-  z:0,
-  speed:0.1,
+  x:0, z:0, y:0,
+  speed:0.15,
   vy:0,
   grounded:true,
   crouching:false
 };
 
-let mode = "normal"; // normal o chase
-let level = 1;
-
 // joystick
-let joy = document.getElementById("joy");
-let stick = document.getElementById("stick");
-let joyActive = false;
-let joyX = 0, joyY = 0;
+let joyX=0, joyY=0;
+let stick=document.getElementById("stick");
 
-joy.addEventListener("touchstart",()=>joyActive=true);
-joy.addEventListener("touchend",()=>{joyActive=false; joyX=0; joyY=0;});
-joy.addEventListener("touchmove",(e)=>{
-  let rect = joy.getBoundingClientRect();
+document.getElementById("joy").addEventListener("touchmove",(e)=>{
+  let rect = e.target.getBoundingClientRect();
   let x = e.touches[0].clientX - rect.left - 60;
   let y = e.touches[0].clientY - rect.top - 60;
+
   joyX = x/40;
   joyY = y/40;
 
-  stick.style.left = (35 + x/2) + "px";
-  stick.style.top = (35 + y/2) + "px";
+  stick.style.left = (35 + x/2)+"px";
+  stick.style.top = (35 + y/2)+"px";
 });
 
-// saltar
-function jump(){
+// botón atrás
+document.getElementById("back").onclick=()=>{
+  player.z -= 1;
+};
+
+// salto
+document.getElementById("jump").onclick=()=>{
   if(player.grounded){
-    player.vy = 0.2;
-    player.grounded = false;
+    player.vy = 0.25;
+    player.grounded=false;
   }
-}
+};
 
 // agacharse
-function crouch(){
+document.getElementById("crouch").onclick=()=>{
   player.crouching = !player.crouching;
-}
+};
 
 // monstruo
 let monster = {x:5,z:5};
 
 function update(){
 
-  // movimiento joystick
+  // joystick movimiento
   player.x += joyX * player.speed;
   player.z += joyY * player.speed;
 
@@ -109,26 +116,18 @@ function update(){
 
   if(player.y <= 0){
     player.y = 0;
-    player.grounded = true;
+    player.grounded=true;
   }
 
-  // persecución
-  if(level === 30){
-    mode = "chase";
-  }
-
-  if(mode === "chase"){
-    player.z += 0.2; // avance automático
-  }
-
-  // monstruo persigue
+  // monstruo
   let dx = player.x - monster.x;
   let dz = player.z - monster.z;
+
   monster.x += dx * 0.01;
   monster.z += dz * 0.01;
 
-  if(Math.abs(dx) < 0.5 && Math.abs(dz) < 0.5){
-    alert("💀 TE ATRAPARON");
+  if(Math.abs(dx)<0.5 && Math.abs(dz)<0.5){
+    alert("💀 TE ATRAPÓ");
     location.reload();
   }
 
@@ -136,16 +135,15 @@ function update(){
   requestAnimationFrame(update);
 }
 
-// render simple 3D (fake perspective)
 function draw(){
   ctx.fillStyle="black";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // piso
+  // efecto piso
   ctx.fillStyle="#111";
   for(let i=0;i<20;i++){
-    let size = 200/(i+1);
-    ctx.fillRect(canvas.width/2 - size/2, canvas.height - i*30, size, 2);
+    let size=200/(i+1);
+    ctx.fillRect(canvas.width/2-size/2, canvas.height-i*30, size,2);
   }
 
   // monstruo
@@ -153,11 +151,13 @@ function draw(){
   let mz = canvas.height/2 + (monster.z-player.z)*100;
 
   ctx.fillStyle="red";
-  ctx.fillRect(mx, mz, 20, 20);
+  ctx.fillRect(mx,mz,20,20);
 
-  // efecto terror
-  ctx.fillStyle="rgba(255,0,0,0.05)";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // efecto agachado
+  if(player.crouching){
+    ctx.fillStyle="rgba(0,0,0,0.5)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
 }
 
 update();
