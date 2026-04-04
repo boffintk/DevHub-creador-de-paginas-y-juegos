@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Terror PRO</title>
+<style>
+body {
+  margin:0;
+  background:black;
+  overflow:hidden;
+}
+#game {
+  width:100vw;
+  height:100vh;
+  position:relative;
+}
+.player {
+  width:20px;
+  height:20px;
+  background:lime;
+  position:absolute;
+}
+.monster {
+  width:20px;
+  height:20px;
+  position:absolute;
+}
+.door {
+  width:30px;
+  height:30px;
+  background:brown;
+  position:absolute;
+}
+.buttonUI {
+  position:absolute;
+  bottom:20px;
+  width:80px;
+  height:40px;
+  background:black;
+  color:white;
+  border:1px solid white;
+}
+#leftBtn { left:20px; }
+#rightBtn { right:20px; }
+</style>
+</head>
+<body>
+
+<div id="game"></div>
+
+<button id="leftBtn" class="buttonUI">←</button>
+<button id="rightBtn" class="buttonUI">→</button>
+
+<script>
+const game = document.getElementById("game");
+
+let player = {x:50,y:50};
+let level = 1;
+let monsters = [];
+let keys = {};
+let mode = "normal"; // normal, chase, rail, boss
+
+let playerDiv = document.createElement("div");
+playerDiv.className="player";
+game.appendChild(playerDiv);
+
+let door = document.createElement("div");
+door.className="door";
+game.appendChild(door);
+
+function spawnMonster(tipo){
+  let m=document.createElement("div");
+  m.className="monster";
+
+  if(tipo==="mirada") m.style.background="white";
+  if(tipo==="boss") m.style.background="purple";
+
+  let obj={
+    x:Math.random()*500,
+    y:Math.random()*500,
+    tipo:tipo,
+    div:m
+  };
+  game.appendChild(m);
+  monsters.push(obj);
+}
+
+function newLevel(){
+  monsters.forEach(m=>m.div.remove());
+  monsters=[];
+
+  if(level===30){ mode="chase"; return; }
+  if(level===35){ mode="rail"; return; }
+  if(level===40){ mode="boss"; startBoss(); return; }
+
+  mode="normal";
+  spawnMonster("mirada");
+
+  level++;
+}
+
+function startBoss(){
+  spawnMonster("boss");
+}
+
+document.addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keyup",e=>keys[e.key]=false);
+
+document.getElementById("leftBtn").onclick=()=>player.x-=40;
+document.getElementById("rightBtn").onclick=()=>player.x+=40;
+
+function update(){
+
+  // movimiento
+  if(keys["w"]) player.y-=2;
+  if(keys["s"]) player.y+=2;
+  if(keys["a"]) player.x-=2;
+  if(keys["d"]) player.x+=2;
+
+  playerDiv.style.left=player.x+"px";
+  playerDiv.style.top=player.y+"px";
+
+  door.style.left=(window.innerWidth-60)+"px";
+  door.style.top=(window.innerHeight/2)+"px";
+
+  // ===== MONSTRUOS =====
+  monsters.forEach(m=>{
+    let dx=player.x-m.x;
+    let dy=player.y-m.y;
+    let dist=Math.sqrt(dx*dx+dy*dy);
+
+    // 👁️ monstruo que daña si lo miras
+    if(m.tipo==="mirada"){
+      if(dist<200){
+        // simulación de "mirar"
+        if(Math.abs(dx)<100){
+          alert("👁️ Lo miraste... MUERES");
+          location.reload();
+        }
+      }
+    }
+
+    // 💀 boss
+    if(m.tipo==="boss"){
+      m.x+=dx*0.01;
+      m.y+=dy*0.01;
+
+      if(Math.random()<0.01){
+        alert("🔥 El boss lanzó ataque!");
+      }
+
+      if(keys["e"]){
+        alert("🧪 Le lanzaste líquido morado!");
+        finalAnim();
+      }
+    }
+
+    m.div.style.left=m.x+"px";
+    m.div.style.top=m.y+"px";
+
+    if(dist<15){
+      alert("💀 Te atraparon nivel "+level);
+      location.reload();
+    }
+  });
+
+  // ===== EVENTOS =====
+
+  if(mode==="chase"){
+    // persecución nivel 30
+    player.y+=2; // te obliga a correr
+    if(Math.random()<0.02){
+      alert("⚠️ Trampa!");
+    }
+  }
+
+  if(mode==="rail"){
+    // carril nivel 35
+    player.y+=3;
+  }
+
+  // puerta
+  let dx=player.x-(window.innerWidth-60);
+  let dy=player.y-(window.innerHeight/2);
+  let dist=Math.sqrt(dx*dx+dy*dy);
+
+  if(dist<30 && mode==="normal"){
+    newLevel();
+    player.x=50;
+    player.y=50;
+  }
+
+  requestAnimationFrame(update);
+}
+
+function finalAnim(){
+  alert("💥 Caja cae...");
+  setTimeout(()=>{
+    alert("🕳️ El boss cae 120m...");
+    setTimeout(()=>{
+      alert("🏆 GANASTE");
+      location.reload();
+    },1000);
+  },1000);
+}
+
+update();
+</script>
+
+</body>
+</html>
