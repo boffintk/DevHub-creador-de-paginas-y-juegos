@@ -2,206 +2,162 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Terror PRO</title>
+<title>Terror 3D</title>
 <style>
-body {
-  margin:0;
-  background:black;
-  overflow:hidden;
-}
-#game {
-  width:100vw;
-  height:100vh;
-  position:relative;
-}
-.player {
-  width:20px;
-  height:20px;
-  background:lime;
+body { margin:0; overflow:hidden; background:black; }
+canvas { display:block; }
+
+/* joystick */
+#joy {
   position:absolute;
-}
-.monster {
-  width:20px;
-  height:20px;
-  position:absolute;
-}
-.door {
-  width:30px;
-  height:30px;
-  background:brown;
-  position:absolute;
-}
-.buttonUI {
-  position:absolute;
+  right:20px;
   bottom:20px;
-  width:80px;
-  height:40px;
-  background:black;
-  color:white;
-  border:1px solid white;
+  width:120px;
+  height:120px;
+  background:rgba(255,255,255,0.1);
+  border-radius:50%;
 }
-#leftBtn { left:20px; }
-#rightBtn { right:20px; }
+#stick {
+  width:50px;
+  height:50px;
+  background:white;
+  border-radius:50%;
+  position:absolute;
+  left:35px;
+  top:35px;
+}
+button {
+  position:absolute;
+  left:20px;
+  bottom:20px;
+  padding:10px;
+}
 </style>
 </head>
 <body>
 
-<div id="game"></div>
+<canvas id="game"></canvas>
 
-<button id="leftBtn" class="buttonUI">←</button>
-<button id="rightBtn" class="buttonUI">→</button>
+<div id="joy"><div id="stick"></div></div>
+<button onclick="jump()">🦘</button>
+<button style="bottom:70px;" onclick="crouch()">🧎</button>
 
 <script>
-const game = document.getElementById("game");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-let player = {x:50,y:50};
+// jugador
+let player = {
+  x:0,
+  y:0,
+  z:0,
+  speed:0.1,
+  vy:0,
+  grounded:true,
+  crouching:false
+};
+
+let mode = "normal"; // normal o chase
 let level = 1;
-let monsters = [];
-let keys = {};
-let mode = "normal"; // normal, chase, rail, boss
 
-let playerDiv = document.createElement("div");
-playerDiv.className="player";
-game.appendChild(playerDiv);
+// joystick
+let joy = document.getElementById("joy");
+let stick = document.getElementById("stick");
+let joyActive = false;
+let joyX = 0, joyY = 0;
 
-let door = document.createElement("div");
-door.className="door";
-game.appendChild(door);
+joy.addEventListener("touchstart",()=>joyActive=true);
+joy.addEventListener("touchend",()=>{joyActive=false; joyX=0; joyY=0;});
+joy.addEventListener("touchmove",(e)=>{
+  let rect = joy.getBoundingClientRect();
+  let x = e.touches[0].clientX - rect.left - 60;
+  let y = e.touches[0].clientY - rect.top - 60;
+  joyX = x/40;
+  joyY = y/40;
 
-function spawnMonster(tipo){
-  let m=document.createElement("div");
-  m.className="monster";
+  stick.style.left = (35 + x/2) + "px";
+  stick.style.top = (35 + y/2) + "px";
+});
 
-  if(tipo==="mirada") m.style.background="white";
-  if(tipo==="boss") m.style.background="purple";
-
-  let obj={
-    x:Math.random()*500,
-    y:Math.random()*500,
-    tipo:tipo,
-    div:m
-  };
-  game.appendChild(m);
-  monsters.push(obj);
+// saltar
+function jump(){
+  if(player.grounded){
+    player.vy = 0.2;
+    player.grounded = false;
+  }
 }
 
-function newLevel(){
-  monsters.forEach(m=>m.div.remove());
-  monsters=[];
-
-  if(level===30){ mode="chase"; return; }
-  if(level===35){ mode="rail"; return; }
-  if(level===40){ mode="boss"; startBoss(); return; }
-
-  mode="normal";
-  spawnMonster("mirada");
-
-  level++;
+// agacharse
+function crouch(){
+  player.crouching = !player.crouching;
 }
 
-function startBoss(){
-  spawnMonster("boss");
-}
-
-document.addEventListener("keydown",e=>keys[e.key]=true);
-document.addEventListener("keyup",e=>keys[e.key]=false);
-
-document.getElementById("leftBtn").onclick=()=>player.x-=40;
-document.getElementById("rightBtn").onclick=()=>player.x+=40;
+// monstruo
+let monster = {x:5,z:5};
 
 function update(){
 
-  // movimiento
-  if(keys["w"]) player.y-=2;
-  if(keys["s"]) player.y+=2;
-  if(keys["a"]) player.x-=2;
-  if(keys["d"]) player.x+=2;
+  // movimiento joystick
+  player.x += joyX * player.speed;
+  player.z += joyY * player.speed;
 
-  playerDiv.style.left=player.x+"px";
-  playerDiv.style.top=player.y+"px";
+  // gravedad
+  player.vy -= 0.01;
+  player.y += player.vy;
 
-  door.style.left=(window.innerWidth-60)+"px";
-  door.style.top=(window.innerHeight/2)+"px";
-
-  // ===== MONSTRUOS =====
-  monsters.forEach(m=>{
-    let dx=player.x-m.x;
-    let dy=player.y-m.y;
-    let dist=Math.sqrt(dx*dx+dy*dy);
-
-    // 👁️ monstruo que daña si lo miras
-    if(m.tipo==="mirada"){
-      if(dist<200){
-        // simulación de "mirar"
-        if(Math.abs(dx)<100){
-          alert("👁️ Lo miraste... MUERES");
-          location.reload();
-        }
-      }
-    }
-
-    // 💀 boss
-    if(m.tipo==="boss"){
-      m.x+=dx*0.01;
-      m.y+=dy*0.01;
-
-      if(Math.random()<0.01){
-        alert("🔥 El boss lanzó ataque!");
-      }
-
-      if(keys["e"]){
-        alert("🧪 Le lanzaste líquido morado!");
-        finalAnim();
-      }
-    }
-
-    m.div.style.left=m.x+"px";
-    m.div.style.top=m.y+"px";
-
-    if(dist<15){
-      alert("💀 Te atraparon nivel "+level);
-      location.reload();
-    }
-  });
-
-  // ===== EVENTOS =====
-
-  if(mode==="chase"){
-    // persecución nivel 30
-    player.y+=2; // te obliga a correr
-    if(Math.random()<0.02){
-      alert("⚠️ Trampa!");
-    }
+  if(player.y <= 0){
+    player.y = 0;
+    player.grounded = true;
   }
 
-  if(mode==="rail"){
-    // carril nivel 35
-    player.y+=3;
+  // persecución
+  if(level === 30){
+    mode = "chase";
   }
 
-  // puerta
-  let dx=player.x-(window.innerWidth-60);
-  let dy=player.y-(window.innerHeight/2);
-  let dist=Math.sqrt(dx*dx+dy*dy);
-
-  if(dist<30 && mode==="normal"){
-    newLevel();
-    player.x=50;
-    player.y=50;
+  if(mode === "chase"){
+    player.z += 0.2; // avance automático
   }
 
+  // monstruo persigue
+  let dx = player.x - monster.x;
+  let dz = player.z - monster.z;
+  monster.x += dx * 0.01;
+  monster.z += dz * 0.01;
+
+  if(Math.abs(dx) < 0.5 && Math.abs(dz) < 0.5){
+    alert("💀 TE ATRAPARON");
+    location.reload();
+  }
+
+  draw();
   requestAnimationFrame(update);
 }
 
-function finalAnim(){
-  alert("💥 Caja cae...");
-  setTimeout(()=>{
-    alert("🕳️ El boss cae 120m...");
-    setTimeout(()=>{
-      alert("🏆 GANASTE");
-      location.reload();
-    },1000);
-  },1000);
+// render simple 3D (fake perspective)
+function draw(){
+  ctx.fillStyle="black";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // piso
+  ctx.fillStyle="#111";
+  for(let i=0;i<20;i++){
+    let size = 200/(i+1);
+    ctx.fillRect(canvas.width/2 - size/2, canvas.height - i*30, size, 2);
+  }
+
+  // monstruo
+  let mx = canvas.width/2 + (monster.x-player.x)*100;
+  let mz = canvas.height/2 + (monster.z-player.z)*100;
+
+  ctx.fillStyle="red";
+  ctx.fillRect(mx, mz, 20, 20);
+
+  // efecto terror
+  ctx.fillStyle="rgba(255,0,0,0.05)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 }
 
 update();
